@@ -9,4 +9,4 @@
     > Gets current temperature from previous API
     > Send Point object to HTML and make a pointer from this
     
-<!--     ![Preview image](/assets/map.png) -->
+![Preview image](map.png) 
