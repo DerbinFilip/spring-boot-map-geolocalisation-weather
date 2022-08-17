@@ -3,8 +3,7 @@ package pl.derbin.springmap.service;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -14,60 +13,58 @@ import pl.derbin.springmap.model.temperatureModels.TemperatureModel;
 
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 @Service
 public class WeatherService {
-    private static final String coordinateUrl = "https://raw.githubusercontent.com/albertyw/avenews/master/old/data/average-latitude-longitude-countries.csv";
-    private int count = 0;
+    private static final int MAX_NUMBER_OF_POINTS = 20;
+    private final RestTemplate weatherRestTemplate;
+    private final String coordinateUrl;
+    private final String weatherUrl;
+
+
+    protected WeatherService(WeatherRestTemplate weatherRestTemplate,
+                             @Value("${country_url}") String coordinateUrl,
+                             @Value("${weather_url}") String weatherUrl) {
+        this.weatherRestTemplate = weatherRestTemplate;
+        this.coordinateUrl = coordinateUrl;
+        this.weatherUrl = weatherUrl;
+    }
+
     public List<Point> getCoordinates() throws IOException {
-        List<Point> points = new ArrayList<>();
-        RestTemplate restTemplate = new RestTemplate();
-        RestTemplate restTemplate1 = new RestTemplate();
-        String values = restTemplate1.getForObject(coordinateUrl, String.class);
+        String values = weatherRestTemplate.getForObject(coordinateUrl, String.class);
         StringReader stringReader = new StringReader(values);
         CSVParser parser = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(stringReader);
-        getPointsWithTemperatureAndCountryName(points, restTemplate, parser);
-        return points;
+        return getPointsWithTemperatureAndCountryName(parser);
     }
 
-    private void getPointsWithTemperatureAndCountryName(List<Point> points, RestTemplate restTemplate, CSVParser parser) {
-        for (CSVRecord strings : parser) {
-            count++;
-            if(count == 20) break;
-            String name = strings.get("Country");
-            double lat = Double.parseDouble(strings.get("Latitude"));
-            double lon = Double.parseDouble(strings.get("Longitude"));
-            String temperatureUrl = "https://api.openweathermap.org/data/2.5/weather?units=metric&exclude=current&appid=c31f7965ccc33ae68ce85d475c477f81&lat=" + lat + "&lon=" + lon;
-            HttpHeaders httpHeaders = new HttpHeaders();
-            httpHeaders.add("", "");
-            HttpEntity httpEntity = new HttpEntity(httpHeaders);
-            ResponseEntity<TemperatureModel> entity = getTemperatureModelResponseEntity(restTemplate, temperatureUrl, httpEntity);
-            addParticularValuesToPointList(points, strings, entity, name);
-        }
+    private List<Point> getPointsWithTemperatureAndCountryName(CSVParser parser) throws IOException {
+        return parser.getRecords().stream()
+                .limit(MAX_NUMBER_OF_POINTS)
+                .map(this::mapToPoint)
+                .collect(Collectors.toList());
     }
 
-    private void addParticularValuesToPointList(List<Point> points, CSVRecord strings, ResponseEntity<TemperatureModel> entity, String name) {
-        Stream.of(entity.getBody()).filter(Objects::nonNull).map(
-                temperature ->
-                        new Point(
-                                Double.parseDouble(strings.get("Latitude")),
-                                Double.parseDouble(strings.get("Longitude")),
-                                temperature.getMain().getTemp().toString(),
-                                name.trim()
-                        )).forEach(points::add);
+    private Point mapToPoint(CSVRecord strings) {
+        String name = strings.get("Country");
+        double lat = Double.parseDouble(strings.get("Latitude"));
+        double lon = Double.parseDouble(strings.get("Longitude"));
+        final TemperatureModel temperatureModel = getTemperatureModel(weatherRestTemplate, lat, lon);
+        return createParticularValuesToPointList(lat, lon, temperatureModel, name);
     }
 
-    private ResponseEntity<TemperatureModel> getTemperatureModelResponseEntity(RestTemplate restTemplate, String temperatureUrl, HttpEntity httpEntity) {
-        ResponseEntity<TemperatureModel> entity = restTemplate
-                .exchange(
-                        temperatureUrl,
-                        HttpMethod.GET,
-                        httpEntity, TemperatureModel.class
-                );
-        return entity;
+    private TemperatureModel getTemperatureModel(RestTemplate weatherRestTemplate, double lat, double lon) {
+        String temperatureUrl = weatherUrl + lat + "&lon=" + lon;
+        ResponseEntity<TemperatureModel> entity = getTemperatureModelResponseEntity(temperatureUrl);
+        return entity.getBody();
+    }
+
+    private Point createParticularValuesToPointList(double lat, double lon, TemperatureModel temperatureModel, String name) {
+        return new Point(lat, lon, temperatureModel.getMain().getTemp().toString(), name.trim());
+    }
+
+    private ResponseEntity<TemperatureModel> getTemperatureModelResponseEntity(String temperatureUrl) {
+        return weatherRestTemplate.exchange(temperatureUrl, HttpMethod.GET, null, TemperatureModel.class);
     }
 }
