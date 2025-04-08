@@ -14,7 +14,6 @@ public class MapController {
         this.weatherService = weatherService;
     }
 
-
     @GetMapping
     public String getMap(@NotNull Model model) throws Exception {
         model.addAttribute("points", weatherService.getCoordinates());

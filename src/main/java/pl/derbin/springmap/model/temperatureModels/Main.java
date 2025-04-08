@@ -2,8 +2,8 @@
 package pl.derbin.springmap.model.temperatureModels;
 
 import com.fasterxml.jackson.annotation.*;
+import jakarta.annotation.Generated;
 
-import javax.annotation.Generated;
 import java.util.HashMap;
 import java.util.Map;
 

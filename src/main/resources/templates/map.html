@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.w3.org/1999/xhtml">
 <head>
 	<meta charset="UTF-8">
-	<title>SpringBoot-map</title>
+	<title>Geo-localisation weather</title>
 
 
 	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css"
@@ -20,7 +20,7 @@
 <script th:inline="javascript">
 var model = [[${points}]];
 
-var map = L.map('mapid').setView([52.95, 19.23], 10);
+var map = L.map('mapid').setView([52.95, 19.23], 5);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 		maxZoom: 19,
@@ -29,14 +29,9 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 model.forEach(value => {
 L.marker([value.lat, value.lon]).addTo(map)
-.bindPopup(value.text+"°C" + "<br>" + value.countryName)
+.bindPopup(value.temperature+"°C" + "<br>" + value.countryName)
 .openPopup();
 })
-
-
-
-
-
 </script>
 </body>
 </html>
